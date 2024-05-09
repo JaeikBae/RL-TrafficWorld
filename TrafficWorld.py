@@ -12,115 +12,58 @@
 # doen't follow the navigation instructions : -100
 # doesn't follow the lane rules : -100
 # doesn't follow the traffic light : -50
+# on the lane : -1
+# on the center line : -100
 
 COLLISION_REWARD = -100
 WRONG_DIRECTION_REWARD = -100
 WRONG_LANE_REWARD = -100
 WRONG_LIGHT_REWARD = -50
 TIME_STEP_REWARD = -1
+ON_LANE_REWARD = -1
+ON_CENTER_LINE_REWARD = -100
 DEST_REWARD = 100
 
 CAR_COLOR = 'orange'
 
+from TrafficWorldMap import TrafficWorldMap
+from Car import Car
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import matplotlib.animation as animation
-from time import sleep
-
-class TrafficWorldMap:
-    def __init__(self, map_data):
-        self.colors = [
-            'gray', # 벽
-            'black', # 차도
-            'white', # 차선
-            'yellow', # 중앙선
-            'cyan', # 정지선 좌측
-            'blue', # 정지선 직진
-            'purple', # 정지선 우측
-            'red', # 적색신호
-            'green' # 녹색신호
-        ]
-        self.fig, self.ax = plt.subplots()
-        self.t = 0
-        self.curr = 7
-        self.map_data = map_data
-
-    def change_light(self):
-        for i in range(self.map_data.shape[0]):
-            for j in range(self.map_data.shape[1]):
-                if self.map_data[i][j] == 7:
-                    self.map_data[i][j] = 8
-                elif self.map_data[i][j] == 8:
-                    self.map_data[i][j] = 7
-
-    def visualize_map(self):
-        self.ax.clear()
-        for i in range(self.map_data.shape[0]):
-            for j in range(self.map_data.shape[1]):
-                color = self.colors[self.map_data[i][j]]
-                rect = patches.Rectangle((j, self.map_data.shape[0] - i - 1), 1, 1, linewidth=0.1, edgecolor='black', facecolor=color)
-                self.ax.add_patch(rect)
-        plt.xlim(0, self.map_data.shape[1])
-        plt.ylim(0, self.map_data.shape[0])
-        plt.gca().set_aspect('equal', adjustable='box')
-        plt.text(0, 0, self.t, fontsize=12, color='black')
-
-    def update(self, frame):
-        self.t = (self.t + 1) % 10
-        if self.t < 7 and self.curr == 8:
-            self.change_light()
-            self.curr = 7
-        elif self.t >= 7 and self.curr == 7:
-            self.change_light()
-            self.curr = 8
-        self.visualize_map()
-
-    def run(self):
-        ani = animation.FuncAnimation(self.fig, self.update, frames=100, interval=1000)
-        plt.show()
 
 class TrafficWorld:
-    def __init__(self, map_data):
-        self.map_data = map_data
-        self.map_shape = map_data.shape
+    def __init__(self, map_path):
+        self.map_data = np.genfromtxt(map_path, delimiter=',', dtype=int)
+        self.map_shape = self.map_data.shape
         self.car = Car(self.map_shape)
         self.traffic_world_map = TrafficWorldMap(self.map_data)
 
-    def step(self, action):
+    def car_move(self, action):
         self.car.move(action)
+
+    def get_reward(self):
+        # 0: wall, 1: road, 2: lane, 3: center line, 4: stop line left, 5: stop line straight, 6: stop line right, 7: red light, 8: green light
         reward = TIME_STEP_REWARD
-        if self.car.is_collision(self.map_data):
+        cx, cy = self.car.get_position()
+
+        if self.map_data[cy][cx] == 0: # at the wall
             reward += COLLISION_REWARD
-        if self.car.is_wrong_direction(self.map_data):
-            reward += WRONG_DIRECTION_REWARD
-        if self.car.is_wrong_lane(self.map_data):
-            reward += WRONG_LANE_REWARD
-        if self.car.is_wrong_light(self.map_data):
+        elif self.map_data[cy][cx] == 1: # at the road
+            pass
+        elif self.map_data[cy][cx] == 2: # at the lane
+            reward += ON_LANE_REWARD
+        elif self.map_data[cy][cx] == 3: # at the center line
+            reward += ON_CENTER_LINE_REWARD
+        elif self.map_data[cy][cx] in [4, 5, 6]: # at the stop line
+            if self.car.next_path() != self.map_data[cy][cx]: # doesn't follow the lane rules
+                reward += WRONG_DIRECTION_REWARD
+        elif self.map_data[cy][cx] == 7: # at the red light
             reward += WRONG_LIGHT_REWARD
-        if self.car.is_destination():
-            reward += DEST_REWARD
-        return reward
+        elif self.map_data[cy][cx] == 8: # at the green light
+            pass
 
     def run(self):
-        self.traffic_world_map.run()
+        self.traffic_world_map.show(*self.car.get_position(), CAR_COLOR)
 
-class Car:
-    def __init__(self, map_shape):
-        self.map_shape = map_shape
-        self.x = np.random.randint(map_shape[1])
-        self.y = np.random.randint(map_shape[0])
-        self.dx = [0, 0, -1, 1]
-        self.dy = [-1, 1, 0, 0]
-
-    def move(self, action):
-        self.x += self.dx[action]
-        self.y += self.dy[action]
-        if self.x < 0:
-            self.x = 0
-        if self.x >= self.map_shape[1]:
-            self.x = self.map_shape[1] - 1
-        if self.y < 0:
-            self.y = 0
-        if self.y >= self.map_shape[0]:
-            self.y = self.map_shape[0] - 1
+if __name__ == '__main__':
+    traffic_world = TrafficWorld('data/map.csv')
+    traffic_world.run()
