@@ -34,16 +34,19 @@ class TrafficWorld:
     def __init__(self, map_path):
         self.map_data = np.genfromtxt(map_path, delimiter=',', dtype=int)
         self.map_shape = self.map_data.shape
-        self.car = Car(self.map_shape)
+        self.car = Car(self.map_shape, 10)
         self.traffic_world_map = TrafficWorldMap(self.map_data)
 
     def car_move(self, action):
+        print(action)
         self.car.move(action)
+        cy, cx = self.car.get_position()
+        self.traffic_world_map.set_cx_cy(cx, cy)
 
     def get_reward(self):
         # 0: wall, 1: road, 2: lane, 3: center line, 4: stop line left, 5: stop line straight, 6: stop line right, 7: red light, 8: green light
         reward = TIME_STEP_REWARD
-        cx, cy = self.car.get_position()
+        cy, cx = self.car.get_position()
 
         if self.map_data[cy][cx] == 0: # at the wall
             reward += COLLISION_REWARD
@@ -61,9 +64,31 @@ class TrafficWorld:
         elif self.map_data[cy][cx] == 8: # at the green light
             pass
 
+        if self.car.next_path() == 0: # doesn't follow the navigation instructions
+            pass
+
+        return reward
+
     def run(self):
-        self.traffic_world_map.show(*self.car.get_position(), CAR_COLOR)
+        self.traffic_world_map.start_visualization()
 
 if __name__ == '__main__':
     traffic_world = TrafficWorld('data/map.csv')
-    traffic_world.run()
+    import threading
+    t = threading.Thread(target=traffic_world.run)
+    t.start()
+    print("Asfd")
+    import keyboard
+    from time import sleep
+    while True:
+        event = keyboard.read_event()
+        if event.event_type == keyboard.KEY_DOWN:
+            if keyboard.is_pressed('w'):
+                traffic_world.car_move('w')
+            if keyboard.is_pressed('s'):
+                traffic_world.car_move('s')
+            if keyboard.is_pressed('a'):
+                traffic_world.car_move('a')
+            if keyboard.is_pressed('d'):
+                traffic_world.car_move('d')
+            print(traffic_world.get_reward())

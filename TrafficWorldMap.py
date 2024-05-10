@@ -24,30 +24,60 @@ class TrafficWorldMap:
         self.color = 'orange'
 
     def time_step(self):
-        self.t += 1
+        self.t = (self.t + 1) % 10
         self.change_light()
 
     def change_light(self):
-        if self.t % 10 in [0, 1, 2, 3, 4]:
+        isWillChange = False
+        if self.curr_light == GREEN_LIGHT and self.t in [0, 1, 2, 3, 4]:
             self.curr_light = RED_LIGHT
-        else:
+            isWillChange = True
+        elif self.curr_light == RED_LIGHT and self.t in [5, 6, 7, 8, 9]:
             self.curr_light = GREEN_LIGHT
-        for i in range(self.map_data.shape[0]):
-            for j in range(self.map_data.shape[1]):
-                if self.map_data[i][j] in [RED_LIGHT, GREEN_LIGHT]:
-                    self.map_data[i][j] = GREEN_LIGHT if self.curr_light == RED_LIGHT else RED_LIGHT
+            isWillChange = True
 
-    def set_cx_cy_t(self, cx, cy, t, color):
+        if isWillChange:
+            for y in range(self.map_data.shape[0]):
+                for x in range(self.map_data.shape[1]):
+                    if self.map_data[y][x] == RED_LIGHT:
+                        self.map_data[y][x] = GREEN_LIGHT
+                    elif self.map_data[y][x] == GREEN_LIGHT:
+                        self.map_data[y][x] = RED_LIGHT
+            
+
+    def set_cx_cy(self, cx, cy):
         self.cx = cx
         self.cy = cy
-        self.t = t
-        self.color = color
-        print(f'cx: {self.cx}, cy: {self.cy}, color: {self.color}')
 
     def show_car(self):
         # 차량을 표시하기 위한 사각형 설정
         car_rect = pygame.Rect(self.cx * 10, self.cy * 10, 10, 10)  # 사각형 크기와 위치 조정
         pygame.draw.rect(self.screen, pygame.Color(self.color), car_rect)  # 사각형 그리기
+
+    def start_visualization(self):
+        pygame.init()
+        screen = pygame.display.set_mode((self.map_data.shape[1] * 10, self.map_data.shape[0] * 10))
+        self.screen = screen
+        running = True
+        while running:
+            # print time in screen
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+            screen.fill(pygame.Color('gray'))
+            for y in range(self.map_data.shape[0]):
+                for x in range(self.map_data.shape[1]):
+                    rect = pygame.Rect(x * 10, y * 10, 10, 10)
+                    color = pygame.Color(self.colors[self.map_data[y][x]])
+                    pygame.draw.rect(screen, color, rect)
+
+            self.show_car()
+            pygame.display.flip()
+            pygame.time.wait(1000)
+
+            self.time_step()
+        pygame.quit()
 
     def move_car(self, direction):
         if direction == 'w':  # 위로 이동
