@@ -2,13 +2,11 @@ import numpy as np
 
 from RandomPath import RandomPath
 
-# TODO : set start position
-
 class Car:
     def __init__(self, map_shape, path_length, seed = 0):
         self.map_shape = map_shape
-        self.x = 0
-        self.y = 0
+        self.x = 32
+        self.y = 45
         self.dx = [0, 0, -1, 1]
         self.dy = [-1, 1, 0, 0]
         self.path = RandomPath(path_length, seed)

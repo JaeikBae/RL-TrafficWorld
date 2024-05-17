@@ -1,4 +1,5 @@
 import pygame
+import numpy as np
 
 RED_LIGHT = 7
 GREEN_LIGHT = 8
@@ -19,8 +20,8 @@ class TrafficWorldMap:
         self.t = 0
         self.curr_light = RED_LIGHT
         self.map_data = map_data
-        self.cx = 0
-        self.cy = 0
+        self.cx = 32
+        self.cy = 45
         self.color = 'orange'
 
     def time_step(self):
@@ -60,8 +61,9 @@ class TrafficWorldMap:
         self.screen = screen
         running = True
         while running:
-            # print time in screen
-
+            # print time on title
+            pygame.display.set_caption('Time: {}'.format(self.t))
+            
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
@@ -69,7 +71,7 @@ class TrafficWorldMap:
             for y in range(self.map_data.shape[0]):
                 for x in range(self.map_data.shape[1]):
                     rect = pygame.Rect(x * 10, y * 10, 10, 10)
-                    color = pygame.Color(self.colors[self.map_data[y][x]])
+                    color = pygame.Color(self.colors[np.abs(self.map_data[y][x])])
                     pygame.draw.rect(screen, color, rect)
 
             self.show_car()
