@@ -12,15 +12,14 @@
 # doen't follow the navigation instructions : -100
 # doesn't follow the lane rules : -100
 # doesn't follow the traffic light : -50
-# on the lane : -1
 # on the center line : -100
 
 COLLISION_REWARD = -100
 WRONG_DIRECTION_REWARD = -100
+WRONG_PATH_REWARD = -100
 WRONG_LANE_REWARD = -100
 WRONG_LIGHT_REWARD = -50
 TIME_STEP_REWARD = -1
-ON_LANE_REWARD = -1
 ON_CENTER_LINE_REWARD = -100
 DEST_REWARD = 100
 
@@ -44,27 +43,80 @@ class TrafficWorld:
         self.traffic_world_map.set_cx_cy(cx, cy)
 
     def get_reward(self):
-        # 0: wall, 1: road, 2: lane, 3: center line, 4: stop line left, 5: stop line straight, 6: stop line right, 7: red light, 8: green light
+        # 0: wall
+        # 1: stopline
+        # 2: line
+        # 3: center line
+        # +-4: 1st lane, +-5: 2nd lane, +-6: 3rd lane
+        # 7: red light, 8: green light
         reward = TIME_STEP_REWARD
+
         cy, cx = self.car.get_position()
 
         if self.map_data[cy][cx] == 0: # at the wall
+            """
+            TODO
+                end the simulation and reset the car's position
+                increase COLLISION_REWARD to -1000?
+            """
             reward += COLLISION_REWARD
-        elif self.map_data[cy][cx] == 1: # at the road
+
+        elif self.map_data[cy][cx] == 1: # at the stop line
+            """
+            TODO
+                update the car's path
+                if the car reached the destination, give DEST_REWARD
+                somthing about traffic light
+            """
             pass
-        elif self.map_data[cy][cx] == 2: # at the lane
-            reward += ON_LANE_REWARD
+
+        elif self.map_data[cy][cx] == 2: # at the line
+            """
+            NOTE
+                when car moves, it aumaticaly moves to the target lane.
+                so the car can't be on the line.
+            """
+            pass
+
         elif self.map_data[cy][cx] == 3: # at the center line
+            """
+            TODO
+                end the simulation and reset the car's position
+                increase ON_CENTER_LINE_REWARD to -1000?
+                may integrate with the wall collision?
+            """
             reward += ON_CENTER_LINE_REWARD
-        elif self.map_data[cy][cx] in [4, 5, 6]: # at the stop line
-            if self.car.next_path() != self.map_data[cy][cx]: # doesn't follow the lane rules
-                reward += WRONG_DIRECTION_REWARD
-        elif self.map_data[cy][cx] == 7: # at the red light
+
+        elif self.map_data[cy][cx] in [-6, -5, -4, 4, 5, 6]: # at the each lane
+            """
+            TODO
+                if the car doing reverse run, give WRONG_DIRECTION_REWARD
+                save the car's lane to determine the car following the lane rules at the stop line
+                before reaches the stop line, the car can move to the other lane (if it isn't reverse run)
+            """
+            reward += WRONG_DIRECTION_REWARD
+
+        elif self.map_data[cy][cx] in 7: # at the redtraffic light
+            """
+            TODO
+                give WRONG_LIGHT_REWARD at entering time step only
+            """
             reward += WRONG_LIGHT_REWARD
-        elif self.map_data[cy][cx] == 8: # at the green light
+
+        elif self.map_data[cy][cx] in 8: # at the green traffic light
+            """
+            NOTE
+                on green light, no penalty
+            """
             pass
 
         if self.car.next_path() == 0: # doesn't follow the navigation instructions
+            """
+            TODO
+                configure "if" statement
+                if the car doesn't follow the navigation instructions, 
+                give WRONG_PATH_REWARD or terminate the simulation?
+            """
             pass
 
         return reward
@@ -77,7 +129,6 @@ if __name__ == '__main__':
     import threading
     t = threading.Thread(target=traffic_world.run)
     t.start()
-    print("Asfd")
     import keyboard
     from time import sleep
     while True:
