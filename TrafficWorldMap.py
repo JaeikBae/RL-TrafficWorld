@@ -1,4 +1,4 @@
-import pygame
+import pygame # type: ignore
 import numpy as np
 
 RED_LIGHT = 7
@@ -23,17 +23,29 @@ class TrafficWorldMap:
         self.cx = 32
         self.cy = 45
         self.color = 'orange'
+        
+        self.text = ""
+
+    def get_state(self):
+        return {
+            'map_data': self.map_data.copy(),
+            'current_light': self.curr_light,
+            'time': self.t
+        }
+
+    def set_text(self, text):
+        self.text = text
 
     def time_step(self):
-        self.t = (self.t + 1) % 10
+        self.t = self.t + 1
         self.change_light()
 
     def change_light(self):
         isWillChange = False
-        if self.curr_light == GREEN_LIGHT and self.t in [0, 1, 2, 3, 4]:
+        if self.curr_light == GREEN_LIGHT and self.t % 10 in [0, 1, 2, 3, 4]:
             self.curr_light = RED_LIGHT
             isWillChange = True
-        elif self.curr_light == RED_LIGHT and self.t in [5, 6, 7, 8, 9]:
+        elif self.curr_light == RED_LIGHT and self.t % 10 in [5, 6, 7, 8, 9]:
             self.curr_light = GREEN_LIGHT
             isWillChange = True
 
@@ -57,7 +69,7 @@ class TrafficWorldMap:
 
     def start_visualization(self):
         pygame.init()
-        screen = pygame.display.set_mode((self.map_data.shape[1] * 10, self.map_data.shape[0] * 10))
+        screen = pygame.display.set_mode((self.map_data.shape[1] * 10, self.map_data.shape[0] * 10 + 70))
         self.screen = screen
         running = True
         while running:
@@ -67,7 +79,7 @@ class TrafficWorldMap:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
-            screen.fill(pygame.Color('gray'))
+            screen.fill(pygame.Color('black'))
             for y in range(self.map_data.shape[0]):
                 for x in range(self.map_data.shape[1]):
                     rect = pygame.Rect(x * 10, y * 10, 10, 10)
@@ -75,10 +87,20 @@ class TrafficWorldMap:
                     pygame.draw.rect(screen, color, rect)
 
             self.show_car()
+            # add some texts at bottom
+            font = pygame.font.Font(None, 20)
+            line1 = "Time: {}".format(self.t)
+            line2 = self.text[0]
+            line3 = self.text[1]
+            coded_line1 = font.render(line1, True, (255, 255, 255))
+            coded_line2 = font.render(line2, True, (255, 255, 255))
+            coded_line3 = font.render(line3, True, (255, 255, 255))
+            screen.blit(coded_line1, (10, self.map_data.shape[0] * 10+10))
+            screen.blit(coded_line2, (10, self.map_data.shape[0] * 10+30))
+            screen.blit(coded_line3, (10, self.map_data.shape[0] * 10+50))
             pygame.display.flip()
             pygame.time.wait(1000)
-
-            self.time_step()
+            
         pygame.quit()
 
     def move_car(self, direction):
@@ -94,6 +116,13 @@ class TrafficWorldMap:
         # 맵의 경계를 넘지 않도록 조정
         self.cx = max(0, min(self.cx, self.map_data.shape[1] - 1))
         self.cy = max(0, min(self.cy, self.map_data.shape[0] - 1))
+
+    def reset(self):
+        self.t = 0
+        self.curr_light = RED_LIGHT
+        self.cx = 32
+        self.cy = 45
+        self.color = 'orange'
 
 
 if __name__ == '__main__':
