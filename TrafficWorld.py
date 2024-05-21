@@ -32,6 +32,9 @@ class TrafficWorld:
             'time': self.traffic_world_map.t
         }
 
+        self.last_heading = None
+        self.intersection_direction = None
+
     def reset(self):
         state, info = self.get_state()
         self.car.reset()
@@ -130,6 +133,7 @@ class TrafficWorld:
             pass
 
         elif self.map_data[cy][cx] == 2:
+            # TODO : Penalty for staying on lane(pixel)
             pass
 
         elif self.map_data[cy][cx] == 3:
@@ -138,25 +142,48 @@ class TrafficWorld:
             self.episode_end(reason)
 
         elif self.map_data[cy][cx] in [-6, -5, -4, 4, 5, 6]:
+            # TODO : Penalty for Wrong-way driving
             if False:
                 reward += WRONG_DIRECTION_REWARD
 
-        elif self.map_data[cy][cx] == 7:
+        # Entering Intersection on RED : Traffic light signal violation
+        elif self.map_data[cy][cx] == 7:            
             if not self.isCarOnIntersection:
                 self.car_heading_at_entering = self.car.get_heading()
                 self.isCarOnIntersection = True
                 reward += WRONG_LIGHT_REWARD
 
+        # Entering intersection on GREEN
         elif self.map_data[cy][cx] == 8:
+            # TODO : Positive Reward for right action
             if not self.isCarOnIntersection:
                 self.car_heading_at_entering = self.car.get_heading()
                 self.isCarOnIntersection = True
+
 
         if self.isCarOnIntersection and self.map_data[cy][cx] not in [7, 8]: 
             self.car.path_progress()
             prev_path = self.car.prev_path()
             prev_heading = self.car_heading_at_entering
             car_heading = self.car.get_heading()
+
+            # Exiting intersection after up/down heading enterence
+            if car_heading == 0 or car_heading == 1:
+
+                # check left & right including current position for stop-line pixel
+                if 1 in [self.map_data[cy][cx+1], self.map_data[cy][cx], self.map_data[cy][cx-1]]:
+                    reward += WRONG_DIRECTION_REWARD
+                else:
+                    pass
+
+            # Exiting intersection after right/left heading enterence
+            elif car_heading == 2 or car_heading == 3:
+                
+                # check up & down including current position for stop-line pixel
+                if 1 in [self.map_data[cy-1][cx], self.map_data[cy][cx], self.map_data[cy+1][cx]]:
+                    reward += WRONG_DIRECTION_REWARD
+                else:
+                    pass
 
             if prev_path == 0 and car_heading != (prev_heading + 3) % 4:
                 reward += WRONG_PATH_REWARD
