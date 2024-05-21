@@ -44,15 +44,28 @@ class ReplayMemory(object):
 
 class DQN(nn.Module):
     def __init__(self, n_observations, n_actions):
+        print(n_observations, n_actions)
         super(DQN, self).__init__()
-        self.layer1 = nn.Linear(n_observations, 128)
-        self.layer2 = nn.Linear(128, 128)
-        self.layer3 = nn.Linear(128, n_actions)
+        self.layers = nn.Sequential(
+            # 3499 4
+            # 차량 주변만...?
+            nn.Linear(n_observations, 3499),
+            nn.ReLU(),
+            nn.Linear(3499, 2048),
+            nn.ReLU(),
+            nn.Linear(2048, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, n_actions)
+        )
 
     def forward(self, x):
-        x = F.relu(self.layer1(x))
-        x = F.relu(self.layer2(x))
-        return self.layer3(x)
+        return self.layers(x)
 
 # %%
 BATCH_SIZE = 128
@@ -144,8 +157,16 @@ def optimize_model():
     loss.backward()
     torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
     optimizer.step()
+
 # %%
-num_episodes = 200 if torch.cuda.is_available() else 100
+try:
+    policy_net.load_state_dict(torch.load('traffic_world.pth'))
+    target_net.load_state_dict(policy_net.state_dict())
+    print("Model loaded")
+except:
+    print("Model not found")
+# %%
+num_episodes = 200 if torch.cuda.is_available() else 200
 
 for i_episode in range(num_episodes):
     state, _ = env.reset()
@@ -165,7 +186,7 @@ for i_episode in range(num_episodes):
         if not done:
             next_state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
         else:
-            print(f"Episode {i_episode + 1} finished. Reward : {reward} - {info['episode_end_reason']}", end='\r')
+            print(f"Episode {i_episode + 1} finished. Reward : {reward} - {info['episode_end_reason']}")
             next_state = None
 
         memory.push(state, action, next_state, reward)
