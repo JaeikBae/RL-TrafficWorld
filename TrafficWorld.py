@@ -11,8 +11,9 @@ WRONG_LANE_REWARD = -100
 WRONG_LIGHT_REWARD = -50
 TIME_STEP_REWARD = -1
 ON_CENTER_LINE_REWARD = -100
-FAIL_REWARD = -1000
-DEST_REWARD = 100
+FAIL_REWARD = -500
+SUCCESS_INTERSECTION_REWARD = 100
+DEST_REWARD = 1000
 
 CAR_COLOR = 'orange'
 class TrafficWorld:
@@ -126,7 +127,7 @@ class TrafficWorld:
 
         if self.map_data[cy][cx] == 0:
             reward += COLLISION_REWARD
-            reason = 'collision'
+            reason = 'wall'
             self.episode_end(reason)
 
         elif self.map_data[cy][cx] == 1:
@@ -145,6 +146,7 @@ class TrafficWorld:
             # TODO : Penalty for Wrong-way driving
             if False:
                 reward += WRONG_DIRECTION_REWARD
+            pass
 
         # Entering Intersection on RED : Traffic light signal violation
         elif self.map_data[cy][cx] == 7:            
@@ -160,39 +162,43 @@ class TrafficWorld:
                 self.car_heading_at_entering = self.car.get_heading()
                 self.isCarOnIntersection = True
 
-
         if self.isCarOnIntersection and self.map_data[cy][cx] not in [7, 8]: 
             self.car.path_progress()
             prev_path = self.car.prev_path()
             prev_heading = self.car_heading_at_entering
             car_heading = self.car.get_heading()
 
-            # Exiting intersection after up/down heading enterence
-            if car_heading == 0 or car_heading == 1:
+            is_will_end = False
+            reason = None
 
-                # check left & right including current position for stop-line pixel
+            # reverse run detection
+            if car_heading == 0 or car_heading == 1:
                 if 1 in [self.map_data[cy][cx+1], self.map_data[cy][cx], self.map_data[cy][cx-1]]:
                     reward += WRONG_DIRECTION_REWARD
-                else:
-                    pass
-
-            # Exiting intersection after right/left heading enterence
+                    is_will_end = True; reason = 'reverse_run'
             elif car_heading == 2 or car_heading == 3:
-                
-                # check up & down including current position for stop-line pixel
                 if 1 in [self.map_data[cy-1][cx], self.map_data[cy][cx], self.map_data[cy+1][cx]]:
                     reward += WRONG_DIRECTION_REWARD
-                else:
-                    pass
+                    is_will_end = True; reason = 'reverse_run'
 
+            # path following detection
             if prev_path == 0 and car_heading != (prev_heading + 3) % 4:
                 reward += WRONG_PATH_REWARD
+                is_will_end = True; reason = 'wrong_path'
             elif prev_path == 1 and car_heading != prev_heading:
                 reward += WRONG_PATH_REWARD
+                is_will_end = True; reason = 'wrong_path'
             elif prev_path == 2 and car_heading != (prev_heading + 1) % 4:
                 reward += WRONG_PATH_REWARD
+                is_will_end = True; reason = 'wrong_path'
+
+            if is_will_end:
+                reason = 'wrong_direction'
+                self.episode_end(reason)
             
             self.isCarOnIntersection = False
+            # car successfully passed the intersection
+            reward += SUCCESS_INTERSECTION_REWARD
 
         return reward, reason
 
