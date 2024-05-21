@@ -23,7 +23,6 @@ n_actions = len(ACTIONS)
 
 # GPU를 사용할 경우
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 # %%
 
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
