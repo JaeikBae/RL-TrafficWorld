@@ -92,6 +92,9 @@ class TrafficWorldMap:
             line1 = "Time: {}".format(self.t)
             line2 = self.text[0]
             line3 = self.text[1]
+            print(line1)
+            print(line2)
+            print(line3)
             coded_line1 = font.render(line1, True, (255, 255, 255))
             coded_line2 = font.render(line2, True, (255, 255, 255))
             coded_line3 = font.render(line3, True, (255, 255, 255))
@@ -99,8 +102,10 @@ class TrafficWorldMap:
             screen.blit(coded_line2, (10, self.map_data.shape[0] * 10+30))
             screen.blit(coded_line3, (10, self.map_data.shape[0] * 10+50))
             pygame.display.flip()
-            pygame.time.wait(1000)
             
+        pygame.quit()
+
+    def close(self):
         pygame.quit()
 
     def move_car(self, direction):

@@ -166,7 +166,7 @@ try:
 except:
     print("Model not found")
 # %%
-num_episodes = 200 if torch.cuda.is_available() else 200
+num_episodes = 50 if torch.cuda.is_available() else 50
 
 for i_episode in range(num_episodes):
     state, _ = env.reset()
@@ -211,18 +211,22 @@ plt.show()
 
 torch.save(policy_net.state_dict(), 'traffic_world.pth')
 # %%
-# policy_net = DQN(n_observations, n_actions).to(device)
-# policy_net.load_state_dict(torch.load('traffic_world.pth'))
+# load model and visualize
+# load model and visualize
+policy_net.load_state_dict(torch.load('traffic_world.pth'))
+initial_state, _ = env.reset()  # 초기 상태를 가져옴
+state = torch.tensor(env.flatten_state(initial_state), dtype=torch.float32, device=device).unsqueeze(0)
 
-# state, _ = env.reset()
-# state = torch.tensor(env.flatten_state(state), dtype=torch.float32, device=device).unsqueeze(0)
-# for t in count():
-#     action = policy_net(state).max(1)[1].view(1, 1)
-#     next_state, _, done, _ = env.step(action.item())
-#     state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
-#     env.render()
-#     if done:
-#         break
-# env.close()
+for t in count():
+    action = policy_net(state).max(1)[1].view(1, 1)
+    next_state, reward, done, info = env.step(action.item())
+    state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
+    env.render(interval=0.5)
+    if done:
+        print(f"Episode finished. Reward : {reward} - {info['episode_end_reason']}")
+        break
+
+env.close()
+
 
 # %%
