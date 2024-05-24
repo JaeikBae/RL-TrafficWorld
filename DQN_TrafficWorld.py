@@ -1,4 +1,5 @@
 # %%
+%cd /ws
 import math
 import random
 import matplotlib
@@ -165,6 +166,7 @@ try:
 except:
     print("Model not found")
 # %%
+print("device : ", device)
 num_episodes = 200 if torch.cuda.is_available() else 200
 
 for i_episode in range(num_episodes):
