@@ -1,7 +1,7 @@
 docker build -t trafficworld .
 xhost +
 sudo modprobe uinput
-docker run \
+docker run -d  \
     -e DISPLAY=$DISPLAY \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -v .:/ws \

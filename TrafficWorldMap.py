@@ -26,9 +26,19 @@ class TrafficWorldMap:
         
         self.text = ""
 
-    def get_state(self):
+    def get_state(self, cy, cx):
+        
+        # get map state only around the car 10x10
+        state = []
+        for y in range(cy-5, cy+5):
+            for x in range(cx-5, cx+5):
+                if y < 0 or x < 0 or y >= self.map_data.shape[0] or x >= self.map_data.shape[1]:
+                    state.append(0)
+                else:
+                    state.append(self.map_data[y][x])
+        state = np.array(state)
         return {
-            'map_data': self.map_data.copy(),
+            'map_data': state,
             'current_light': self.curr_light,
             'time': self.t
         }
