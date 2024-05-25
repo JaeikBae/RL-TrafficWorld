@@ -15,6 +15,7 @@ TIME_STEP_REWARD = -1
 ON_CENTER_LINE_REWARD = -100
 FAIL_REWARD = -1000
 STOP_REWARD = -10
+GOOD_DIRECTION_REWARD = 100
 SUCCESS_INTERSECTION_REWARD = 100
 DEST_REWARD = 1000
 
@@ -190,6 +191,9 @@ class TrafficWorld:
                         if self.car.get_heading() == 1: 
                             reward += WRONG_DIRECTION_REWARD
                             is_will_end = True; reason = 'reverse_run:road'
+
+                    else:
+                        reward += GOOD_DIRECTION_REWARD
                     break
                 else:
                     pass
