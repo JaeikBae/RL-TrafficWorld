@@ -215,79 +215,88 @@ except Exception as e:
     print(e)
     print("Model not found")
 # %%
-print("device : ", device)
-num_episodes = 1000000 if torch.cuda.is_available() else 1000000
+# print("device : ", device)
+# num_episodes = 1000000 if torch.cuda.is_available() else 1000000
 
-rewards = []
-for i_episode in range(load_epoch, num_episodes):
-    state, _ = env.reset()
-    state = torch.tensor(env.flatten_state(state), dtype=torch.float32, device=device).unsqueeze(0)
-    sum_reward = 0
-    for t in count():
-        action = select_action(state)
-        next_state, reward, done, info = env.step(action.item())
-        """
-        info = {
-            'episode_end': False,
-            'episode_end_reason': None,
-            'current_light': self.traffic_world_map.curr_light,
-            'time': self.traffic_world_map.t
-        }
-        """
-        reward = torch.tensor([reward], device=device)
-        sum_reward += reward.item()
+# rewards = []
+# for i_episode in range(load_epoch, num_episodes):
+#     state, _ = env.reset()
+#     state = torch.tensor(env.flatten_state(state), dtype=torch.float32, device=device).unsqueeze(0)
+#     sum_reward = 0
+#     for t in count():
+#         action = select_action(state)
+#         next_state, reward, done, info = env.step(action.item())
+#         """
+#         info = {
+#             'episode_end': False,
+#             'episode_end_reason': None,
+#             'current_light': self.traffic_world_map.curr_light,
+#             'time': self.traffic_world_map.t
+#         }
+#         """
+#         reward = torch.tensor([reward], device=device)
+#         sum_reward += reward.item()
 
-        if not done:
-            next_state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
-        else:
-            rewards.append(sum_reward/(t+1))
-            print(f"Episode {i_episode + 1} finished. Reward : {reward} - {info['episode_end_reason']}")
-            next_state = None
+#         if not done:
+#             next_state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
+#         else:
+#             rewards.append(sum_reward/(t+1))
+#             print(f"Episode {i_episode + 1} finished. Reward : {reward} - {info['episode_end_reason']}")
+#             next_state = None
 
-        memory.push(state, action, next_state, reward)
-        state = next_state
-        optimize_model()
+#         memory.push(state, action, next_state, reward)
+#         state = next_state
+#         optimize_model()
 
-        target_net_state_dict = target_net.state_dict()
-        policy_net_state_dict = policy_net.state_dict()
-        for key in policy_net_state_dict:
-            target_net_state_dict[key] = policy_net_state_dict[key]*TAU + target_net_state_dict[key]*(1-TAU)
-        target_net.load_state_dict(target_net_state_dict)
+#         target_net_state_dict = target_net.state_dict()
+#         policy_net_state_dict = policy_net.state_dict()
+#         for key in policy_net_state_dict:
+#             target_net_state_dict[key] = policy_net_state_dict[key]*TAU + target_net_state_dict[key]*(1-TAU)
+#         target_net.load_state_dict(target_net_state_dict)
 
-        if done:
-            episode_durations.append(t + 1)
-            break
+#         if done:
+#             episode_durations.append(t + 1)
+#             break
 
-    if i_episode % 500 == 0:
-        torch.save(policy_net.state_dict(), f'./models/traffic_world_{i_episode}.pth')
-        plot_durations(i_episode, reward=rewards)
-        plt.ioff()
-        plt.show()
+#     if i_episode % 500 == 0:
+#         torch.save(policy_net.state_dict(), f'./models/traffic_world_{i_episode}.pth')
+#         plot_durations(i_episode, reward=rewards)
+#         plt.ioff()
+#         plt.show()
 
 
-print('Complete')
-# plot_durations("end", show_result=True)
-plt.ioff()
-plt.show()
+# print('Complete')
+# # plot_durations("end", show_result=True)
+# plt.ioff()
+# plt.show()
 # %%
-# load model and visualize
-# load_epoch = 110500
-# target_net = DQN(n_observations, n_actions).to(device)
-# target_net.load_state_dict(torch.load(f'./models/traffic_world_{load_epoch}.pth', map_location=device))
-# initial_state, _ = env.reset()  # 초기 상태를 가져옴
-# state = torch.tensor(env.flatten_state(initial_state), dtype=torch.float32, device=device).unsqueeze(0)
+# Load the model and visualize
+load_epoch = 2000
+map_shape = (1, env.map_data.shape[0], env.map_data.shape[1])  # assuming single channel input for CNN
+n_other_features = n_observations - np.prod(env.map_data.shape)
 
-# for t in count():
-#     action = target_net(state).max(1)[1].view(1, 1)
-#     next_state, reward, done, info = env.step(action.item())
-#     state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
-#     print(f"Action : {action.item()} - Reward : {reward} - {info['episode_end_reason']}")
-#     if done:
-#         print(f"Episode finished. Reward : {reward} - {info['episode_end_reason']}")
-#         env.close()
-#         break
-#     else : 
-#         env.render(action=action.item())
+target_net = DQN(map_shape, n_other_features, n_actions).to(device)
+target_net.load_state_dict(torch.load(f'./models/traffic_world_{load_epoch}.pth', map_location=device))
+
+initial_state, _ = env.reset()  # 초기 상태를 가져옴
+flattened_state = env.flatten_state(initial_state)
+map_data = torch.tensor(flattened_state[:np.prod(env.map_data.shape)], dtype=torch.float32, device=device).view(-1, *env.map_data.shape)
+other_data = torch.tensor(flattened_state[np.prod(env.map_data.shape):], dtype=torch.float32, device=device).unsqueeze(0)
+
+for t in count():
+    action = target_net(map_data, other_data).max(1)[1].view(1, 1)
+    next_state, reward, done, info = env.step(action.item())
+    flattened_next_state = env.flatten_state(next_state)
+    map_data = torch.tensor(flattened_next_state[:np.prod(env.map_data.shape)], dtype=torch.float32, device=device).view(-1, *env.map_data.shape)
+    other_data = torch.tensor(flattened_next_state[np.prod(env.map_data.shape):], dtype=torch.float32, device=device).unsqueeze(0)
+    
+    print(f"Action : {action.item()} - Reward : {reward} - {info['episode_end_reason']}")
+    if done:
+        print(f"Episode finished. Reward : {reward} - {info['episode_end_reason']}")
+        env.close()
+        break
+    else:
+        env.render(action=action.item())
 
 
 
