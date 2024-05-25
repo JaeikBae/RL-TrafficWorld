@@ -50,9 +50,13 @@ class DQN(nn.Module):
         self.layers = nn.Sequential(
             # 118 4
             # 차량 주변만...?
-            nn.Linear(n_observations, 256),
+            nn.Linear(3499, 2500),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(2500, 1280),
+            nn.ReLU(),
+            nn.Linear(1280, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256),
             nn.ReLU(),
             nn.Linear(256, n_actions)
         )
