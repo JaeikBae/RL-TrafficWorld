@@ -51,13 +51,13 @@ class Car:
 
         if self.x < 0:
             self.x = 0
-        elif self.x >= self.map_shape[1]:
+        if self.x >= self.map_shape[1]:
             self.x = self.map_shape[1] - 1
         if self.y < 0:
             self.y = 0
-        elif self.y >= self.map_shape[0]:
+        if self.y >= self.map_shape[0]:
             self.y = self.map_shape[0] - 1
-
+        
     def move_one_more(self):
         self.move('w') # move forward one more step. heading does not change.
 
