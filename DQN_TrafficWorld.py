@@ -159,8 +159,9 @@ def optimize_model():
     optimizer.step()
 
 # %%
+load_epoch = 111000
 try:
-    policy_net.load_state_dict(torch.load('traffic_world.pth'))
+    policy_net.load_state_dict(torch.load(f'traffic_world_{load_epoch}.pth'))
     target_net.load_state_dict(policy_net.state_dict())
     print("Model loaded")
 except:
@@ -212,7 +213,8 @@ plt.show()
 torch.save(policy_net.state_dict(), 'traffic_world.pth')
 # %%
 # load model and visualize
-policy_net.load_state_dict(torch.load('traffic_world.pth'))
+load = 111000
+policy_net.load_state_dict(torch.load(f'traffic_world{load}.pth'))
 initial_state, _ = env.reset()  # 초기 상태를 가져옴
 state = torch.tensor(env.flatten_state(initial_state), dtype=torch.float32, device=device).unsqueeze(0)
 
