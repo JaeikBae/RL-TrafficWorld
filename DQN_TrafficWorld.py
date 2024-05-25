@@ -1,5 +1,5 @@
 # %%
-# %cd /ws #type: ignore
+%cd /ws
 import math
 import random
 import matplotlib
@@ -113,7 +113,6 @@ def plot_durations(name, reward=None, show_result=False):
         plt.title('Training...')
     plt.xlabel('Episode')
     plt.ylabel('Duration')
-    plt.plot(durations_t.numpy())
     if len(durations_t) >= 100:
         means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
         means = torch.cat((torch.zeros(99), means))
@@ -121,6 +120,7 @@ def plot_durations(name, reward=None, show_result=False):
 
     # print reward on another graph
     if rewards is not None:
+        # make reawds to -1500 which is the minimum value
         rewards_t = torch.tensor(rewards, dtype=torch.float)
         
         plt.figure(2)
@@ -128,12 +128,11 @@ def plot_durations(name, reward=None, show_result=False):
         plt.title('Reward')
         plt.xlabel('Episode')
         plt.ylabel('Reward')
-        plt.plot(rewards_t.numpy(), label='Reward')
         
         if len(rewards_t) >= 100:
             reward_means = rewards_t.unfold(0, 100, 1).mean(1).view(-1)
             reward_means = torch.cat((torch.zeros(99), reward_means))
-            plt.plot(reward_means.numpy(), label='Moving Average (100 episodes)')
+            plt.plot(reward_means.numpy())
         
         plt.savefig(f"./plots/{name}_reward.png")
     
@@ -177,7 +176,7 @@ def optimize_model():
     optimizer.step()
 
 # %%
-load_epoch = 110500
+load_epoch = 0
 try:
     policy_net.load_state_dict(torch.load(f'./models/traffic_world_{load_epoch}.pth', map_location=device))
     target_net.load_state_dict(policy_net.state_dict())
@@ -242,23 +241,23 @@ plt.ioff()
 plt.show()
 # %%
 # load model and visualize
-load_epoch = 110500
-target_net = DQN(n_observations, n_actions).to(device)
-target_net.load_state_dict(torch.load(f'./models/traffic_world_{load_epoch}.pth', map_location=device))
-initial_state, _ = env.reset()  # 초기 상태를 가져옴
-state = torch.tensor(env.flatten_state(initial_state), dtype=torch.float32, device=device).unsqueeze(0)
+# load_epoch = 110500
+# target_net = DQN(n_observations, n_actions).to(device)
+# target_net.load_state_dict(torch.load(f'./models/traffic_world_{load_epoch}.pth', map_location=device))
+# initial_state, _ = env.reset()  # 초기 상태를 가져옴
+# state = torch.tensor(env.flatten_state(initial_state), dtype=torch.float32, device=device).unsqueeze(0)
 
-for t in count():
-    action = target_net(state).max(1)[1].view(1, 1)
-    next_state, reward, done, info = env.step(action.item())
-    state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
-    print(f"Action : {action.item()} - Reward : {reward} - {info['episode_end_reason']}")
-    if done:
-        print(f"Episode finished. Reward : {reward} - {info['episode_end_reason']}")
-        env.close()
-        break
-    else : 
-        env.render(action=action.item())
+# for t in count():
+#     action = target_net(state).max(1)[1].view(1, 1)
+#     next_state, reward, done, info = env.step(action.item())
+#     state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
+#     print(f"Action : {action.item()} - Reward : {reward} - {info['episode_end_reason']}")
+#     if done:
+#         print(f"Episode finished. Reward : {reward} - {info['episode_end_reason']}")
+#         env.close()
+#         break
+#     else : 
+#         env.render(action=action.item())
 
 
 
