@@ -21,9 +21,11 @@ initial_state, _ = env.reset()
 flattened_state = env.flatten_state(initial_state)
 n_observations = len(flattened_state)
 n_actions = len(ACTIONS)
+print(n_observations, n_actions)
 
 # GPU를 사용할 경우
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(device)
 # %%
 
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
@@ -44,31 +46,22 @@ class ReplayMemory(object):
 
 class DQN(nn.Module):
     def __init__(self, n_observations, n_actions):
-        print(n_observations, n_actions)
         super(DQN, self).__init__()
         self.layers = nn.Sequential(
-            # 3499 4
+            # 118 4
             # 차량 주변만...?
-            nn.Linear(n_observations, 3499),
+            nn.Linear(n_observations, 256),
             nn.ReLU(),
-            nn.Linear(3499, 2048),
+            nn.Linear(256, 256),
             nn.ReLU(),
-            nn.Linear(2048, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, 512),
-            nn.ReLU(),
-            nn.Linear(512, 256),
-            nn.ReLU(),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Linear(128, n_actions)
+            nn.Linear(256, n_actions)
         )
 
     def forward(self, x):
         return self.layers(x)
 
 # %%
-BATCH_SIZE = 128
+BATCH_SIZE = 1024
 GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.05
@@ -105,9 +98,10 @@ def select_action(state):
 
 episode_durations = []
 
-def plot_durations(show_result=False):
+def plot_durations(name, reward=None, show_result=False):
     plt.figure(1)
     plt.clf()
+    
     durations_t = torch.tensor(episode_durations, dtype=torch.float)
     if show_result:
         plt.title('Result')
@@ -121,7 +115,27 @@ def plot_durations(show_result=False):
         means = torch.cat((torch.zeros(99), means))
         plt.plot(means.numpy())
 
-    plt.pause(0.001)  # 도표가 업데이트되도록 잠시 멈춤
+    # print reward on another graph
+    if rewards is not None:
+        rewards_t = torch.tensor(rewards, dtype=torch.float)
+        
+        plt.figure(2)
+        plt.clf()
+        plt.title('Reward')
+        plt.xlabel('Episode')
+        plt.ylabel('Reward')
+        plt.plot(rewards_t.numpy(), label='Reward')
+        
+        if len(rewards_t) >= 100:
+            reward_means = rewards_t.unfold(0, 100, 1).mean(1).view(-1)
+            reward_means = torch.cat((torch.zeros(99), reward_means))
+            plt.plot(reward_means.numpy(), label='Moving Average (100 episodes)')
+        
+        plt.savefig(f"./plots/{name}_reward.png")
+    
+    plt.figure(1)
+    plt.savefig(f"./plots/{name}.png")
+    
     if is_ipython:
         if not show_result:
             display.display(plt.gcf())
@@ -159,19 +173,22 @@ def optimize_model():
     optimizer.step()
 
 # %%
+load_epoch = 110500
 try:
-    policy_net.load_state_dict(torch.load('traffic_world.pth'))
+    policy_net.load_state_dict(torch.load(f'./models/traffic_world_{load_epoch}.pth'))
     target_net.load_state_dict(policy_net.state_dict())
     print("Model loaded")
 except:
     print("Model not found")
 # %%
 print("device : ", device)
-num_episodes = 200 if torch.cuda.is_available() else 200
+num_episodes = 1000000 if torch.cuda.is_available() else 1000000
 
-for i_episode in range(num_episodes):
+rewards = []
+for i_episode in range(load_epoch, num_episodes):
     state, _ = env.reset()
     state = torch.tensor(env.flatten_state(state), dtype=torch.float32, device=device).unsqueeze(0)
+    sum_reward = 0
     for t in count():
         action = select_action(state)
         next_state, reward, done, info = env.step(action.item())
@@ -184,9 +201,12 @@ for i_episode in range(num_episodes):
         }
         """
         reward = torch.tensor([reward], device=device)
+        sum_reward += reward.item()
+
         if not done:
             next_state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
         else:
+            rewards.append(sum_reward/t)
             print(f"Episode {i_episode + 1} finished. Reward : {reward} - {info['episode_end_reason']}")
             next_state = None
 
@@ -202,28 +222,36 @@ for i_episode in range(num_episodes):
 
         if done:
             episode_durations.append(t + 1)
-            # plot_durations()
             break
 
+    if i_episode % 500 == 0:
+        torch.save(policy_net.state_dict(), f'./models/traffic_world_{i_episode}.pth')
+        plot_durations(i_episode, reward=rewards)
+        plt.ioff()
+        plt.show()
+
+
 print('Complete')
-plot_durations(show_result=True)
+# plot_durations("end", show_result=True)
 plt.ioff()
 plt.show()
-
-torch.save(policy_net.state_dict(), 'traffic_world.pth')
 # %%
-# policy_net = DQN(n_observations, n_actions).to(device)
-# policy_net.load_state_dict(torch.load('traffic_world.pth'))
+# load model and visualize
+load = 111000
+policy_net.load_state_dict(torch.load(f'traffic_world{load}.pth'))
+initial_state, _ = env.reset()  # 초기 상태를 가져옴
+state = torch.tensor(env.flatten_state(initial_state), dtype=torch.float32, device=device).unsqueeze(0)
 
-# state, _ = env.reset()
-# state = torch.tensor(env.flatten_state(state), dtype=torch.float32, device=device).unsqueeze(0)
-# for t in count():
-#     action = policy_net(state).max(1)[1].view(1, 1)
-#     next_state, _, done, _ = env.step(action.item())
-#     state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
-#     env.render()
-#     if done:
-#         break
-# env.close()
+for t in count():
+    action = policy_net(state).max(1)[1].view(1, 1)
+    next_state, reward, done, info = env.step(action.item())
+    state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
+    env.render(interval=0.5, action=action.item())
+    if done:
+        print(f"Episode finished. Reward : {reward} - {info['episode_end_reason']}")
+        break
+
+env.close()
+
 
 # %%

@@ -3,8 +3,9 @@ import threading
 from Car import Car
 from TrafficWorldMap import TrafficWorldMap
 import numpy as np
+from time import sleep
 
-ACTIONS = ['a', 's', 'd', 'w']
+ACTIONS = ['left_turn', 'right_turn', 'stop', 'forward']
 COLLISION_REWARD = -100
 WRONG_DIRECTION_REWARD = -100
 WRONG_PATH_REWARD = -10
@@ -12,7 +13,7 @@ WRONG_LANE_REWARD = -100
 WRONG_LIGHT_REWARD = -50
 TIME_STEP_REWARD = -1
 ON_CENTER_LINE_REWARD = -100
-FAIL_REWARD = -500
+FAIL_REWARD = -1000
 SUCCESS_INTERSECTION_REWARD = 100
 DEST_REWARD = 1000
 
@@ -58,16 +59,28 @@ class TrafficWorld:
         self.done = info['episode_end']
         return state, reward, self.done, info
 
-    def render(self):
+    def render(self, interval=0, action=None):
         if not hasattr(self, 'visualization_thread') or not self.visualization_thread.is_alive():
             self.visualization_thread = threading.Thread(target=self.traffic_world_map.start_visualization)
             self.visualization_thread.start()
-        self.traffic_world_map.set_cx_cy(*self.car.get_position())
-        self.traffic_world_map.time_step()
+        position = self.car.get_position()
+        print(f'position: {position}')
+        self.traffic_world_map.set_cx_cy(position[1], position[0])
+        to_str_path = ['Left', 'Straight', 'Right']
+        to_str_heading = ['Up', 'Right', 'Down', 'Left']
+        self.traffic_world_map.set_text([
+            f'Action: {ACTIONS[action]}',
+            f'Next path: {to_str_path[self.car.next_path()]}'
+        ])
+        sleep(interval)
+
+    def close(self):
+        self.traffic_world_map.close()
 
     def get_state(self):
+        cy, cx = self.car.get_position()
         state = {
-            'map': self.traffic_world_map.get_state(),
+            'map': self.traffic_world_map.get_state(cy, cx),
             'car': self.car.get_state(),
             'reward_sum': self.reward_sum,
             'is_car_on_intersection': self.isCarOnIntersection,
@@ -99,7 +112,8 @@ class TrafficWorld:
         path = self.car.next_path()
         if path is None:
             print('No path left')
-            exit()
+            self.reward_sum += DEST_REWARD
+            self.episode_end("DONE")
         self.traffic_world_map.set_text(f'Next path: {to_str[path if path is not None else -1]}')
         self.car.move(action)
         cy, cx = self.car.get_position()
@@ -150,7 +164,7 @@ class TrafficWorld:
             for i in range(4,-5, -1):
 
                 # if road is horizontal
-                if self.map_data[cy][np.clip(cx-i, 0, 59)] == 3:
+                if self.map_data[cy][np.clip(cx-i, 0, 58)] == 3:
 
                     # if road direction is right & car heading is left
                     if self.map_data[cy][cx] < 0:
@@ -168,7 +182,7 @@ class TrafficWorld:
                     pass
                 
                 # if road is vertical
-                if self.map_data[np.clip(cy-i, 0, 59)][cx] == 3:
+                if self.map_data[np.clip(cy-i, 0, 58)][cx] == 3:
                     
                     # if road direction is down & car heading is up
                     if self.map_data[cy][cx] < 0: 
@@ -210,11 +224,11 @@ class TrafficWorld:
 
             # reverse run detection
             if car_heading == 1 or car_heading == 3:
-                if 1 in [self.map_data[cy][np.clip(cx+1, 0, 59)], self.map_data[cy][cx], self.map_data[cy][np.clip(cx-1, 0, 59)]]:
+                if 1 in [self.map_data[cy][np.clip(cx+1, 0, 58)], self.map_data[cy][cx], self.map_data[cy][np.clip(cx-1, 0, 58)]]:
                     reward += WRONG_DIRECTION_REWARD
                     is_will_end = True; reason = 'reverse_run:intersection'
             elif car_heading == 0 or car_heading == 2:
-                if 1 in [self.map_data[np.clip(cy-1, 0, 59)][cx], self.map_data[cy][cx], self.map_data[np.clip(cy+1, 0, 59)][cx]]:
+                if 1 in [self.map_data[np.clip(cy-1, 0, 58)][cx], self.map_data[cy][cx], self.map_data[np.clip(cy+1, 0, 58)][cx]]:
                     reward += WRONG_DIRECTION_REWARD
                     is_will_end = True; reason = 'reverse_run:intersection'
 

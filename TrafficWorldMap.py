@@ -26,9 +26,19 @@ class TrafficWorldMap:
         
         self.text = ""
 
-    def get_state(self):
+    def get_state(self, cy, cx):
+        
+        # get map state only around the car 10x10
+        state = []
+        for y in range(cy-5, cy+5):
+            for x in range(cx-5, cx+5):
+                if y < 0 or x < 0 or y >= self.map_data.shape[0] or x >= self.map_data.shape[1]:
+                    state.append(0)
+                else:
+                    state.append(self.map_data[y][x])
+        state = np.array(state)
         return {
-            'map_data': self.map_data.copy(),
+            'map_data': state,
             'current_light': self.curr_light,
             'time': self.t
         }
@@ -92,6 +102,9 @@ class TrafficWorldMap:
             line1 = "Time: {}".format(self.t)
             line2 = self.text[0]
             line3 = self.text[1]
+            print(line1)
+            print(line2)
+            print(line3)
             coded_line1 = font.render(line1, True, (255, 255, 255))
             coded_line2 = font.render(line2, True, (255, 255, 255))
             coded_line3 = font.render(line3, True, (255, 255, 255))
@@ -99,8 +112,10 @@ class TrafficWorldMap:
             screen.blit(coded_line2, (10, self.map_data.shape[0] * 10+30))
             screen.blit(coded_line3, (10, self.map_data.shape[0] * 10+50))
             pygame.display.flip()
-            pygame.time.wait(1000)
             
+        pygame.quit()
+
+    def close(self):
         pygame.quit()
 
     def move_car(self, direction):
