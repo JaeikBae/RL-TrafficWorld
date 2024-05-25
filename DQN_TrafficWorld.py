@@ -1,5 +1,5 @@
 # %%
-%cd /ws #type: ignore
+# %cd /ws #type: ignore
 import math
 import random
 import matplotlib
@@ -175,10 +175,11 @@ def optimize_model():
 # %%
 load_epoch = 110500
 try:
-    policy_net.load_state_dict(torch.load(f'./models/traffic_world_{load_epoch}.pth'))
+    policy_net.load_state_dict(torch.load(f'./models/traffic_world_{load_epoch}.pth', map_location=device))
     target_net.load_state_dict(policy_net.state_dict())
     print("Model loaded")
-except:
+except Exception as e:
+    print(e)
     print("Model not found")
 # %%
 print("device : ", device)
@@ -237,21 +238,25 @@ plt.ioff()
 plt.show()
 # %%
 # load model and visualize
-load = 111000
-policy_net.load_state_dict(torch.load(f'traffic_world{load}.pth'))
+load_epoch = 110500
+target_net = DQN(n_observations, n_actions).to(device)
+target_net.load_state_dict(torch.load(f'./models/traffic_world_{load_epoch}.pth', map_location=device))
 initial_state, _ = env.reset()  # 초기 상태를 가져옴
 state = torch.tensor(env.flatten_state(initial_state), dtype=torch.float32, device=device).unsqueeze(0)
 
 for t in count():
-    action = policy_net(state).max(1)[1].view(1, 1)
+    action = target_net(state).max(1)[1].view(1, 1)
     next_state, reward, done, info = env.step(action.item())
     state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
-    env.render(interval=0.5, action=action.item())
+    print(f"Action : {action.item()} - Reward : {reward} - {info['episode_end_reason']}")
     if done:
         print(f"Episode finished. Reward : {reward} - {info['episode_end_reason']}")
+        env.close()
         break
+    else : 
+        env.render(action=action.item())
 
-env.close()
+
 
 
 # %%

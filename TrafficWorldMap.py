@@ -98,13 +98,10 @@ class TrafficWorldMap:
 
             self.show_car()
             # add some texts at bottom
-            font = pygame.font.Font(None, 20)
+            font = pygame.font.SysFont(None, 20)
             line1 = "Time: {}".format(self.t)
             line2 = self.text[0]
             line3 = self.text[1]
-            print(line1)
-            print(line2)
-            print(line3)
             coded_line1 = font.render(line1, True, (255, 255, 255))
             coded_line2 = font.render(line2, True, (255, 255, 255))
             coded_line3 = font.render(line3, True, (255, 255, 255))

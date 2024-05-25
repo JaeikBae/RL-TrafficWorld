@@ -59,20 +59,27 @@ class TrafficWorld:
         self.done = info['episode_end']
         return state, reward, self.done, info
 
-    def render(self, interval=0, action=None):
+    def render(self, action=None):
         if not hasattr(self, 'visualization_thread') or not self.visualization_thread.is_alive():
             self.visualization_thread = threading.Thread(target=self.traffic_world_map.start_visualization)
             self.visualization_thread.start()
         position = self.car.get_position()
-        print(f'position: {position}')
         self.traffic_world_map.set_cx_cy(position[1], position[0])
         to_str_path = ['Left', 'Straight', 'Right']
         to_str_heading = ['Up', 'Right', 'Down', 'Left']
-        self.traffic_world_map.set_text([
-            f'Action: {ACTIONS[action]}',
-            f'Next path: {to_str_path[self.car.next_path()]}'
-        ])
-        sleep(interval)
+        next_path = self.car.next_path()
+        if action is not None and next_path is not None:
+            self.traffic_world_map.set_text([
+                f'Action: {ACTIONS[action]}',
+                f'Next path: {to_str_path[next_path]}'
+            ])
+        else:
+            self.traffic_world_map.set_text([
+                f'Action: None',
+                f'Next path: None'
+            ])
+        sleep(0.25)
+
 
     def close(self):
         self.traffic_world_map.close()

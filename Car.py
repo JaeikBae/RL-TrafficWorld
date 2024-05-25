@@ -77,5 +77,5 @@ class Car:
         return self.path.get_prev_action()
     
     def reset(self):
-        self.__init__(self.map_shape, self.path_length, self.seed)
+        self.__init__(self.map_shape, self.path_length)
         
