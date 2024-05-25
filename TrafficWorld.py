@@ -217,7 +217,11 @@ class TrafficWorld:
                     pass
 
         # Entering Intersection on RED : Traffic light signal violation
-        elif self.map_data[cy][cx] == 7:            
+        elif self.map_data[cy][cx] == 7:
+            if self.prev_pixel != 1:
+                reward += WRONG_DIRECTION_REWARD
+                is_will_end = True; reason = 'reverse_run:intersection'
+
             if not self.isCarOnIntersection:
                 self.car_heading_at_entering = self.car.get_heading()
                 self.isCarOnIntersection = True
@@ -225,7 +229,9 @@ class TrafficWorld:
 
         # Entering intersection on GREEN
         elif self.map_data[cy][cx] == 8:
-            # TODO : Positive Reward for right action
+            if self.prev_pixel != 1:
+                reward += WRONG_DIRECTION_REWARD
+                is_will_end = True; reason = 'reverse_run:intersection'
             if not self.isCarOnIntersection:
                 self.car_heading_at_entering = self.car.get_heading()
                 self.isCarOnIntersection = True
