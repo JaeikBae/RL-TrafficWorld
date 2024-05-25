@@ -3,8 +3,9 @@ import threading
 from Car import Car
 from TrafficWorldMap import TrafficWorldMap
 import numpy as np
+from time import sleep
 
-ACTIONS = ['a', 's', 'd', 'w']
+ACTIONS = ['left_turn', 'right_turn', 'stop', 'forward']
 COLLISION_REWARD = -100
 WRONG_DIRECTION_REWARD = -100
 WRONG_PATH_REWARD = -10
@@ -58,12 +59,23 @@ class TrafficWorld:
         self.done = info['episode_end']
         return state, reward, self.done, info
 
-    def render(self):
+    def render(self, interval=0, action=None):
         if not hasattr(self, 'visualization_thread') or not self.visualization_thread.is_alive():
             self.visualization_thread = threading.Thread(target=self.traffic_world_map.start_visualization)
             self.visualization_thread.start()
-        self.traffic_world_map.set_cx_cy(*self.car.get_position())
-        self.traffic_world_map.time_step()
+        position = self.car.get_position()
+        print(f'position: {position}')
+        self.traffic_world_map.set_cx_cy(position[1], position[0])
+        to_str_path = ['Left', 'Straight', 'Right']
+        to_str_heading = ['Up', 'Right', 'Down', 'Left']
+        self.traffic_world_map.set_text([
+            f'Action: {ACTIONS[action]}',
+            f'Next path: {to_str_path[self.car.next_path()]}'
+        ])
+        sleep(interval)
+
+    def close(self):
+        self.traffic_world_map.close()
 
     def get_state(self):
         cy, cx = self.car.get_position()

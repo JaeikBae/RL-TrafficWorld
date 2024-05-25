@@ -236,18 +236,22 @@ print('Complete')
 plt.ioff()
 plt.show()
 # %%
-# policy_net = DQN(n_observations, n_actions).to(device)
-# policy_net.load_state_dict(torch.load('traffic_world.pth'))
+# load model and visualize
+load = 111000
+policy_net.load_state_dict(torch.load(f'traffic_world{load}.pth'))
+initial_state, _ = env.reset()  # 초기 상태를 가져옴
+state = torch.tensor(env.flatten_state(initial_state), dtype=torch.float32, device=device).unsqueeze(0)
 
-# state, _ = env.reset()
-# state = torch.tensor(env.flatten_state(state), dtype=torch.float32, device=device).unsqueeze(0)
-# for t in count():
-#     action = policy_net(state).max(1)[1].view(1, 1)
-#     next_state, _, done, _ = env.step(action.item())
-#     state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
-#     env.render()
-#     if done:
-#         break
-# env.close()
+for t in count():
+    action = policy_net(state).max(1)[1].view(1, 1)
+    next_state, reward, done, info = env.step(action.item())
+    state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
+    env.render(interval=0.5, action=action.item())
+    if done:
+        print(f"Episode finished. Reward : {reward} - {info['episode_end_reason']}")
+        break
+
+env.close()
+
 
 # %%
