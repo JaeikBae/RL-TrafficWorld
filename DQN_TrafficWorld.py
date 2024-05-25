@@ -1,5 +1,5 @@
 # %%
-%cd /ws
+%cd /ws #type: ignore
 import math
 import random
 import matplotlib
