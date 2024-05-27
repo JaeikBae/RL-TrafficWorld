@@ -1,5 +1,5 @@
 # %%
-%cd /ws
+# %cd /ws
 import math
 import random
 import matplotlib
@@ -245,3 +245,27 @@ print('Complete')
 plt.ioff()
 plt.show()
  # %%
+# %%
+import numpy as np
+load_epoch = 28000
+map_shape = (1, env.map_data.shape[0], env.map_data.shape[1])  # assuming single channel input for CNN
+n_other_features = n_observations - np.prod(env.map_data.shape)
+
+target_net.load_state_dict(torch.load(f'./models/traffic_world_{load_epoch}.pth', map_location=device))
+
+state, _ = env.reset()
+state = torch.tensor(env.flatten_state(state), dtype=torch.float32, device=device).unsqueeze(0)
+for t in count():
+    action = policy_net(state).max(1)[1].view(1, 1)
+    
+    env.render(action=action.item())
+    next_state, reward, done, info = env.step(action.item())
+    next_state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
+    state = next_state
+
+    if done:
+        print(f"Episode finished. Reward : {reward} - {info['episode_end_reason']}")
+        break
+
+print('Complete')
+# %%
