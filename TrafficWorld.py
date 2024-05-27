@@ -7,7 +7,7 @@ from time import sleep
 
 ACTIONS = ['left_turn', 'right_turn', 'stop', 'forward']
 COLLISION_REWARD = -10
-WRONG_DIRECTION_REWARD = -25
+WRONG_DIRECTION_REWARD = -100
 WRONG_PATH_REWARD = -10
 WRONG_LANE_REWARD = -10
 WRONG_LIGHT_REWARD = -10
@@ -15,9 +15,9 @@ TIME_STEP_REWARD = -1
 ON_CENTER_LINE_REWARD = -10
 FAIL_REWARD = -100
 STOP_REWARD = -5
-GOOD_DIRECTION_REWARD = 1
-ENTER_INTERSECTION_REWARD = 50
-SUCCESS_INTERSECTION_REWARD = 50
+GOOD_DIRECTION_REWARD = 10
+ENTER_INTERSECTION_REWARD = 100
+SUCCESS_INTERSECTION_REWARD = 200
 DEST_REWARD = 500
 
 CAR_COLOR = 'orange'
@@ -111,7 +111,7 @@ class TrafficWorld:
         return np.array(flattened_state, dtype=np.float32)
 
     def car_move(self, action):
-        to_str = ["Left", "Straight", "Right", "Stop"]
+        to_str = ['left_turn', 'right_turn', 'stop', 'forward']
         path = self.car.next_path()
         if path is None:
             print('No path left')
@@ -120,6 +120,15 @@ class TrafficWorld:
         self.traffic_world_map.set_text(f'Next path: {to_str[path if path is not None else -1]}')
         self.car.move(action)
         cy, cx = self.car.get_position()
+        # if car stands on lane(2), move one more step
+        if self.map_data[cy][cx] == 2:
+            if action == 4: #when enter the lane from intersection
+                print(self.car.get_position())
+                self.car.move_one_right()
+                print(self.car.get_position())
+            else:
+                self.car.move_one_forward()
+            cy, cx = self.car.get_position()
         self.traffic_world_map.set_cx_cy(cx, cy)
         self.traffic_world_map.time_step()
         reward, reason = self.get_reward(action)
@@ -235,8 +244,7 @@ class TrafficWorld:
                 self.car_heading_at_entering = self.car.get_heading()
                 self.isCarOnIntersection = True
 
-        if self.isCarOnIntersection and self.map_data[cy][cx] not in [1, 7, 8]: 
-            self.car.path_progress()
+        if self.isCarOnIntersection and self.map_data[cy][cx] not in [7, 8]: 
             prev_path = self.car.prev_path()
             prev_heading = self.car_heading_at_entering
             car_heading = self.car.get_heading()
@@ -268,6 +276,7 @@ class TrafficWorld:
             # car successfully passed the intersection
             if not is_will_end:
                 reward += SUCCESS_INTERSECTION_REWARD
+                self.car.path_progress()
 
         self.prev_pixel = self.map_data[cy][cx]
         if is_will_end:
