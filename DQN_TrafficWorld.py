@@ -1,4 +1,5 @@
 # %%
+%cd /ws
 import math
 import random
 import matplotlib
@@ -9,12 +10,9 @@ from itertools import count
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
-from torch.cuda.amp import autocast, GradScaler
+from torch.cuda.amp import GradScaler
 
 from TrafficWorld import TrafficWorld, ACTIONS
-
-import numpy as np
 
 # Initialize TrafficWorld environment
 env = TrafficWorld('data/map.csv', route_length=3)
@@ -46,37 +44,24 @@ class ReplayMemory(object):
         return len(self.memory)
 
 class DQN(nn.Module):
-    def __init__(self, map_shape, n_other_features, n_actions):
+    def __init__(self, input_dim, n_actions):
         super(DQN, self).__init__()
-        self.conv_layers = nn.Sequential(
-            nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-        )
-        
-        conv_output_size = self._get_conv_output(map_shape)
-        
         self.fc_layers = nn.Sequential(
-            nn.Linear(conv_output_size + n_other_features, 128),
+            nn.Linear(input_dim, 2048),
             nn.ReLU(),
-            nn.Linear(128, 128),
+            nn.Linear(2048, 512),
+            nn.ReLU(),
+            nn.Linear(512, 128),
             nn.ReLU(),
             nn.Linear(128, 64),
             nn.ReLU(),
-            nn.Linear(64, n_actions)
+            nn.Linear(64, 16),
+            nn.ReLU(),
+            nn.Linear(16, n_actions)
         )
 
-    def _get_conv_output(self, shape):
-        o = self.conv_layers(torch.zeros(1, *shape))
-        return int(np.prod(o.size()))
-
-    def forward(self, map_data, other_data):
-        map_data = map_data.unsqueeze(1)  # Add channel dimension
-        conv_out = self.conv_layers(map_data)
-        conv_out = conv_out.view(conv_out.size(0), -1)
-        combined = torch.cat((conv_out, other_data), dim=1)
-        return self.fc_layers(combined)
+    def forward(self, x):
+        return self.fc_layers(x)
 
 # %%
 BATCH_SIZE = 128
@@ -87,11 +72,10 @@ EPS_DECAY = 1000
 TAU = 0.005
 LR = 1e-4
 
-map_shape = (1, env.map_data.shape[0], env.map_data.shape[1])  # assuming single channel input for CNN
-n_other_features = n_observations - np.prod(env.map_data.shape)  # total observations minus the map data
+input_dim = n_observations
 
-policy_net = DQN(map_shape, n_other_features, n_actions).to(device)
-target_net = DQN(map_shape, n_other_features, n_actions).to(device)
+policy_net = DQN(input_dim, n_actions).to(device)
+target_net = DQN(input_dim, n_actions).to(device)
 target_net.load_state_dict(policy_net.state_dict())
 
 optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
@@ -116,14 +100,12 @@ def select_action(state):
     steps_done += 1
     if sample > eps_threshold:
         with torch.no_grad():
-            map_data = state[:, :np.prod(env.map_data.shape)].view(-1, *env.map_data.shape).to(device)
-            other_data = state[:, np.prod(env.map_data.shape):].to(device)
-            return policy_net(map_data, other_data).max(1)[1].view(1, 1)
+            return policy_net(state).max(1)[1].view(1, 1)
     else:
         return torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long)
 
 episode_durations = []
-
+path_done = []
 def plot_durations(name, reward=None, show_result=False):
     plt.figure(1)
     plt.clf()
@@ -135,12 +117,15 @@ def plot_durations(name, reward=None, show_result=False):
         plt.title('Training...')
     plt.xlabel('Episode')
     plt.ylabel('Duration')
+    durations_t = durations_t[durations_t < 1000]
+    durations_t = durations_t[durations_t > 0]
+    plt.plot(durations_t.numpy())
     if len(durations_t) >= 100:
         means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
         means = torch.cat((torch.zeros(99), means))
         plt.plot(means.numpy())
 
-    if rewards is not None:
+    if reward is not None:
         rewards_t = torch.tensor(rewards, dtype=torch.float)
         
         plt.figure(2)
@@ -148,6 +133,9 @@ def plot_durations(name, reward=None, show_result=False):
         plt.title('Reward')
         plt.xlabel('Episode')
         plt.ylabel('Reward')
+        rewards_t = rewards_t[rewards_t < 1500]
+        rewards_t = rewards_t[rewards_t > -1500]
+        plt.plot(rewards_t.numpy())
         
         if len(rewards_t) >= 100:
             reward_means = rewards_t.unfold(0, 100, 1).mean(1).view(-1)
@@ -158,6 +146,13 @@ def plot_durations(name, reward=None, show_result=False):
     
     plt.figure(1)
     plt.savefig(f"./plots/{name}.png")
+
+    plt.figure(3)
+    plt.clf()
+    plt.title('Path Done')
+    plt.xlabel('Episode')
+    plt.ylabel('Path Done')
+    plt.plot(path_done)
     
     if is_ipython:
         if not show_result:
@@ -181,16 +176,11 @@ def optimize_model():
     action_batch = torch.cat(batch.action)
     reward_batch = torch.cat(batch.reward)
 
-    non_final_next_map_data = non_final_next_states[:, :np.prod(env.map_data.shape)].view(-1, *env.map_data.shape).to(device)
-    non_final_next_other_data = non_final_next_states[:, np.prod(env.map_data.shape):].to(device)
-    state_map_data = state_batch[:, :np.prod(env.map_data.shape)].view(-1, *env.map_data.shape).to(device)
-    state_other_data = state_batch[:, np.prod(env.map_data.shape):].to(device)
-
-    state_action_values = policy_net(state_map_data, state_other_data).gather(1, action_batch)
+    state_action_values = policy_net(state_batch).gather(1, action_batch)
 
     next_state_values = torch.zeros(BATCH_SIZE, device=device)
     with torch.no_grad():
-        next_state_values[non_final_mask] = target_net(non_final_next_map_data, non_final_next_other_data).gather(1, policy_net(non_final_next_map_data, non_final_next_other_data).max(1)[1].unsqueeze(1)).squeeze(1)
+        next_state_values[non_final_mask] = target_net(non_final_next_states).max(1)[0]
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
     criterion = nn.SmoothL1Loss()
@@ -231,8 +221,9 @@ for i_episode in range(load_epoch, num_episodes):
         if not done:
             next_state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
         else:
+            path_done.append(env.car.path.curr)
             rewards.append(sum_reward/(t+1))
-            print(f"Episode {i_episode + 1}/{t} finished. Reward : {reward} - {info['episode_end_reason']}")
+            print(f"Episode {i_episode + 1}/{env.end_at} finished. Reward : {reward} - {info['episode_end_reason']}")
             next_state = None
 
         memory.push(state, action, next_state, reward)
@@ -263,9 +254,4 @@ for i_episode in range(load_epoch, num_episodes):
 print('Complete')
 plt.ioff()
 plt.show()
-
-# %%
-# save rewards, episode_durations
-
-
 # %%

@@ -6,28 +6,28 @@ import numpy as np
 from time import sleep
 
 ACTIONS = ['left_turn', 'right_turn', 'stop', 'forward']
-COLLISION_REWARD = -100
-WRONG_DIRECTION_REWARD = -100
-WRONG_PATH_REWARD = -100
+COLLISION_REWARD = -10
+WRONG_DIRECTION_REWARD = -10
+WRONG_PATH_REWARD = -10
 WRONG_LANE_REWARD = -10
 WRONG_LIGHT_REWARD = -10
-TIME_STEP_REWARD = -2
-ON_CENTER_LINE_REWARD = -100
-FAIL_REWARD = -1000
-STOP_REWARD = -10
-GOOD_DIRECTION_REWARD = 100
-ENTER_INTERSECTION_REWARD = 500
-SUCCESS_INTERSECTION_REWARD = 500
-DEST_REWARD = 1000
+TIME_STEP_REWARD = -1
+ON_CENTER_LINE_REWARD = -10
+FAIL_REWARD = -100
+STOP_REWARD = -5
+GOOD_DIRECTION_REWARD = 1
+ENTER_INTERSECTION_REWARD = 50
+SUCCESS_INTERSECTION_REWARD = 50
+DEST_REWARD = 500
 
 CAR_COLOR = 'orange'
 class TrafficWorld:
-    def __init__(self, map_path, route_length=10):
+    def __init__(self, map_path, seed=None, route_length=10):
         self.map_data = np.genfromtxt(map_path, delimiter=',', dtype=int)
         self.map_shape = self.map_data.shape
         self.route_length = route_length
         self.traffic_world_map = TrafficWorldMap(self.map_data)
-        self.car = Car(self.map_shape, self.route_length)
+        self.car = Car(self.map_shape, self.route_length, seed=seed)
         self.isCarOnIntersection = False
         self.reward_sum = 0
         self.done = False
@@ -41,6 +41,7 @@ class TrafficWorld:
         self.last_heading = None
         self.intersection_direction = None
         self.prev_pixel = None
+        self.end_at=0
 
     def reset(self):
         state, info = self.get_state()
@@ -108,7 +109,7 @@ class TrafficWorld:
         flattened_state = []
         flattened_state.extend(state['car']['position'])
         flattened_state.append(state['car']['heading'])
-        flattened_state.extend(state['car']['path'])
+        flattened_state.append(state['car']['path'])
         flattened_state.append(state['car']['current_path_index'])
         flattened_state.append(state['reward_sum'])
         flattened_state.append(state['is_car_on_intersection'])
@@ -134,6 +135,7 @@ class TrafficWorld:
         return self.reward_sum, reason
 
     def episode_end(self, reason):
+        self.end_at = self.traffic_world_map.t
         if reason != 'success':
             self.reward_sum += FAIL_REWARD
         self.info = {
@@ -150,6 +152,7 @@ class TrafficWorld:
         reward = TIME_STEP_REWARD
         reason = None
         cy, cx = self.car.get_position()
+        is_will_end = False
 
         if self.map_data[cy][cx] == 0:
             reward += COLLISION_REWARD
@@ -215,6 +218,7 @@ class TrafficWorld:
                             is_will_end = True; reason = 'reverse_run:road'
                     break
                 else:
+                    reward += GOOD_DIRECTION_REWARD
                     pass
 
         # Entering Intersection on RED : Traffic light signal violation
@@ -239,13 +243,12 @@ class TrafficWorld:
                 self.car_heading_at_entering = self.car.get_heading()
                 self.isCarOnIntersection = True
 
-        if self.isCarOnIntersection and self.map_data[cy][cx] not in [7, 8]: 
+        if self.isCarOnIntersection and self.map_data[cy][cx] not in [1, 7, 8]: 
             self.car.path_progress()
             prev_path = self.car.prev_path()
             prev_heading = self.car_heading_at_entering
             car_heading = self.car.get_heading()
 
-            is_will_end = False
             reason = None
 
             # reverse run detection
@@ -268,16 +271,16 @@ class TrafficWorld:
             elif prev_path == 2 and car_heading != (prev_heading + 1) % 4:
                 reward += WRONG_PATH_REWARD
                 is_will_end = True; reason = 'wrong_path'
-
-            if is_will_end:
-                # reason = 'wrong_direction'
-                self.episode_end(reason)
             
             self.isCarOnIntersection = False
             # car successfully passed the intersection
-            reward += SUCCESS_INTERSECTION_REWARD
+            if not is_will_end:
+                reward += SUCCESS_INTERSECTION_REWARD
 
         self.prev_pixel = self.map_data[cy][cx]
+        if is_will_end:
+            # reason = 'wrong_direction'
+            self.episode_end(reason)
 
         return reward, reason
 

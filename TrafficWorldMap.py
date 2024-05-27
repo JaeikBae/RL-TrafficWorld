@@ -21,7 +21,7 @@ class TrafficWorldMap:
         self.curr_light = RED_LIGHT
         self.map_data = map_data
         self.cx = 32
-        self.cy = 45
+        self.cy = 38
         self.color = 'orange'
         
         self.text = ""
@@ -123,7 +123,7 @@ class TrafficWorldMap:
         self.t = 0
         self.curr_light = RED_LIGHT
         self.cx = 32
-        self.cy = 45
+        self.cy = 38
         self.color = 'orange'
 
 
