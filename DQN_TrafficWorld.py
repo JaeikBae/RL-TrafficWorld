@@ -147,13 +147,6 @@ def plot_durations(name, reward=None, show_result=False):
     plt.figure(1)
     plt.savefig(f"./plots/{name}.png")
 
-    plt.figure(3)
-    plt.clf()
-    plt.title('Path Done')
-    plt.xlabel('Episode')
-    plt.ylabel('Path Done')
-    plt.plot(path_done)
-    
     if is_ipython:
         if not show_result:
             display.display(plt.gcf())
@@ -211,18 +204,15 @@ rewards = []
 for i_episode in range(load_epoch, num_episodes):
     state, _ = env.reset()
     state = torch.tensor(env.flatten_state(state), dtype=torch.float32, device=device).unsqueeze(0)
-    sum_reward = 0
     for t in count():
         action = select_action(state)
         next_state, reward, done, info = env.step(action.item())
         reward = torch.tensor([reward], device=device)
-        sum_reward += reward.item()
 
         if not done:
             next_state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
         else:
-            path_done.append(env.car.path.curr)
-            rewards.append(sum_reward/(t+1))
+            rewards.append(reward)
             print(f"Episode {i_episode + 1}/{env.end_at} finished. Reward : {reward} - {info['episode_end_reason']}")
             next_state = None
 
@@ -254,4 +244,4 @@ for i_episode in range(load_epoch, num_episodes):
 print('Complete')
 plt.ioff()
 plt.show()
-# %%
+ # %%
