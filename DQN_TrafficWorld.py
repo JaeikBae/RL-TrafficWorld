@@ -186,15 +186,15 @@ def optimize_model():
     scaler.update()
     scheduler.step()
 
-# %%
+# # %%
 load_epoch = 0
-try:
-    policy_net.load_state_dict(torch.load(f'./models/traffic_world_{load_epoch}.pth', map_location=device))
-    target_net.load_state_dict(policy_net.state_dict())
-    print("Model loaded")
-except Exception as e:
-    print(e)
-    print("Model not found")
+# try:
+#     policy_net.load_state_dict(torch.load(f'./models/traffic_world_{load_epoch}.pth', map_location=device))
+#     target_net.load_state_dict(policy_net.state_dict())
+#     print("Model loaded")
+# except Exception as e:
+#     print(e)
+#     print("Model not found")
 
 # %%
 print("device : ", device)

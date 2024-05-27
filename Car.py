@@ -58,8 +58,18 @@ class Car:
         if self.y >= self.map_shape[0]:
             self.y = self.map_shape[0] - 1
         
-    def move_one_more(self):
-        self.move('w') # move forward one more step. heading does not change.
+    def move_one_forward(self):
+        self.move('w')
+
+    def move_one_right(self):
+        if self.heading == 0:
+            self.x += 1
+        elif self.heading == 1:
+            self.y += 1
+        elif self.heading == 2:
+            self.x -= 1
+        elif self.heading == 3:
+            self.y -= 1
 
     def get_position(self):
         return self.y, self.x
