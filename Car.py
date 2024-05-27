@@ -8,7 +8,7 @@ class Car:
         self.path_length = path_length
         self.seed = seed
         self.x = 32
-        self.y = 45
+        self.y = 38
         self.dx = [0, 1, 0, -1]
         self.dy = [-1, 0, 1, 0]
         self.heading = 0 # 0: up, 1: right, 2: down, 3: left
