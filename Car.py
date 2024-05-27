@@ -18,7 +18,7 @@ class Car:
         return {
             'position': self.get_position(),
             'heading': self.get_heading(),
-            'path': self.path.path,  # 현재 경로 전체
+            'path': self.path.get_next_action(),
             'current_path_index': self.path.curr,  # 현재 경로 인덱스
         }
 
@@ -77,5 +77,5 @@ class Car:
         return self.path.get_prev_action()
     
     def reset(self):
-        self.__init__(self.map_shape, self.path_length)
+        self.__init__(self.map_shape, self.path_length, seed=self.seed)
         

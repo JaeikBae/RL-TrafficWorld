@@ -4,6 +4,7 @@ class RandomPath:
     def __init__(self, length, seed = None):
         self.path = []
         self.curr = 0
+        self.length = length
         if seed is not None:
             np.random.seed(seed)
         self.generate_path(length)
@@ -51,6 +52,11 @@ class RandomPath:
         if self.curr == 0:
             return None
         return self.path[self.curr - 1]
+    
+    def get_state(self):
+        result = self.path[self.curr:]
+        result.extend([-1 for i in range(self.curr)])
+        return result
     
     def __str__(self) -> str:
         to_str = [
