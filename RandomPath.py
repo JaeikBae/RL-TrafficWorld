@@ -42,7 +42,6 @@ class RandomPath:
 
     def progress(self):
         self.curr += 1
-        print("path:", self.curr)
     
     def get_next_action(self):
         if self.curr == len(self.path):

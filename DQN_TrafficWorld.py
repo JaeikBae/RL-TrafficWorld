@@ -1,8 +1,7 @@
 # %%
-# %cd /ws
+%cd /ws
 import math
 import random
-import matplotlib
 import matplotlib.pyplot as plt
 from collections import namedtuple, deque
 from itertools import count
@@ -15,7 +14,7 @@ from torch.cuda.amp import GradScaler
 from TrafficWorld import TrafficWorld, ACTIONS
 
 # Initialize TrafficWorld environment
-env = TrafficWorld('data/map.csv', route_length=3)
+env = TrafficWorld('data/map.csv', route_length=2)
 initial_state, _ = env.reset()
 flattened_state = env.flatten_state(initial_state)
 n_observations = len(flattened_state)
@@ -26,7 +25,6 @@ print(n_observations, n_actions)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-# %%
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
 
 class ReplayMemory(object):
@@ -34,7 +32,6 @@ class ReplayMemory(object):
         self.memory = deque([], maxlen=capacity)
 
     def push(self, *args):
-        """transition 저장"""
         self.memory.append(Transition(*args))
 
     def sample(self, batch_size):
@@ -47,52 +44,40 @@ class DQN(nn.Module):
     def __init__(self, input_dim, n_actions):
         super(DQN, self).__init__()
         self.fc_layers = nn.Sequential(
-            nn.Linear(input_dim, 2048),
-            nn.ReLU(),
-            nn.Linear(2048, 512),
+            nn.Linear(input_dim, 512),
             nn.ReLU(),
             nn.Linear(512, 128),
             nn.ReLU(),
-            nn.Linear(128, 64),
+            nn.Linear(128, 32),
             nn.ReLU(),
-            nn.Linear(64, 16),
-            nn.ReLU(),
-            nn.Linear(16, n_actions)
+            nn.Linear(32, n_actions)
         )
 
     def forward(self, x):
         return self.fc_layers(x)
 
-# %%
-BATCH_SIZE = 128
+BATCH_SIZE = 32
 GAMMA = 0.99
-EPS_START = 0.9
-EPS_END = 0.05
-EPS_DECAY = 1000
-TAU = 0.005
-LR = 1e-4
+EPS_START = 0.3
+EPS_END = 0.1
+EPS_DECAY = 10000
+TAU = 0.1
+LR = 1e-5
 
 input_dim = n_observations
 
 policy_net = DQN(input_dim, n_actions).to(device)
 target_net = DQN(input_dim, n_actions).to(device)
 target_net.load_state_dict(policy_net.state_dict())
+policy_net.train()
 
 optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
-scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10000, gamma=0.1)
-memory = ReplayMemory(10000)
+memory = ReplayMemory(20000)
 
 scaler = GradScaler()
 
 steps_done = 0
 
-is_ipython = 'inline' in matplotlib.get_backend()
-if is_ipython:
-    from IPython import display
-
-plt.ion()
-
-# %%
 def select_action(state):
     global steps_done
     sample = random.random()
@@ -105,58 +90,19 @@ def select_action(state):
         return torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long)
 
 episode_durations = []
-path_done = []
-def plot_durations(name, reward=None, show_result=False):
+policy_rewards = []
+
+def plot_durations(name):
+    # clear interactive output
     plt.figure(1)
-    plt.clf()
-    
-    durations_t = torch.tensor(episode_durations, dtype=torch.float)
-    if show_result:
-        plt.title('Result')
-    else:
-        plt.title('Training...')
+    plt.cla()
+    plt.title('Policy')
     plt.xlabel('Episode')
-    plt.ylabel('Duration')
-    durations_t = durations_t[durations_t < 1000]
-    durations_t = durations_t[durations_t > 0]
-    plt.plot(durations_t.numpy())
-    if len(durations_t) >= 100:
-        means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
-        means = torch.cat((torch.zeros(99), means))
-        plt.plot(means.numpy())
+    plt.ylabel('Reward')
+    plt.plot(policy_rewards)
+    plt.savefig(f'./plots/{name}.png')
+    plt.show()
 
-    if reward is not None:
-        rewards_t = torch.tensor(rewards, dtype=torch.float)
-        
-        plt.figure(2)
-        plt.clf()
-        plt.title('Reward')
-        plt.xlabel('Episode')
-        plt.ylabel('Reward')
-        rewards_t = rewards_t[rewards_t < 1500]
-        rewards_t = rewards_t[rewards_t > -1500]
-        plt.plot(rewards_t.numpy())
-        
-        if len(rewards_t) >= 100:
-            reward_means = rewards_t.unfold(0, 100, 1).mean(1).view(-1)
-            reward_means = torch.cat((torch.zeros(99), reward_means))
-            plt.plot(reward_means.numpy())
-        
-        plt.savefig(f"./plots/{name}_reward.png")
-    
-    plt.figure(1)
-    plt.savefig(f"./plots/{name}.png")
-
-    if is_ipython:
-        if not show_result:
-            display.display(plt.gcf())
-            display.clear_output(wait=True)
-        else:
-            display.display(plt.gcf())
-    else:
-        plt.show()
-
-# %%
 def optimize_model():
     if len(memory) < BATCH_SIZE:
         return
@@ -184,88 +130,134 @@ def optimize_model():
     torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
     scaler.step(optimizer)
     scaler.update()
-    scheduler.step()
 
-# # %%
-load_epoch = 0
-# try:
-#     policy_net.load_state_dict(torch.load(f'./models/traffic_world_{load_epoch}.pth', map_location=device))
-#     target_net.load_state_dict(policy_net.state_dict())
-#     print("Model loaded")
-# except Exception as e:
-#     print(e)
-#     print("Model not found")
-
-# %%
-print("device : ", device)
-num_episodes = 1000000 if torch.cuda.is_available() else 1000000
-
-rewards = []
-for i_episode in range(load_epoch, num_episodes):
+def eval_target(is_test=False):
     state, _ = env.reset()
     state = torch.tensor(env.flatten_state(state), dtype=torch.float32, device=device).unsqueeze(0)
+    total_reward = 0
+    target_net.eval()
+    for t in count():
+        action = target_net(state).max(1)[1].view(1, 1)
+        next_state, reward, done, info = env.step(action.item())
+        total_reward += reward
+        if is_test:
+            print("Action: ", ACTIONS[action.item()], end=" ")
+            print("Reward: ", reward, end=" ")
+            print("Total Reward: ", total_reward)
+        if not done:
+            next_state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
+        else:
+            print(" " * 100, end="\r")
+            print(f"Eval finished. Reward: {total_reward} / Reason: {info['episode_end_reason']}", end="\r")
+            break
+        state = next_state
+    target_net.train()
+    return total_reward
+
+# %%
+import pickle
+load_at = 0
+# load pkl
+# policy_rewards = pickle.load(open("policy_rewards.pkl", "rb"))[:load_at]
+# target_rewards = pickle.load(open("target_rewards.pkl", "rb"))[:load_at]
+# episode_durations = pickle.load(open("episode_durations.pkl", "rb"))[:load_at]
+# policy_net.load_state_dict(torch.load(f'./models/traffic_world_{load_at}.pth'))
+# target_net.load_state_dict(policy_net.state_dict())
+dones = []
+print("device : ", device)
+num_episodes = 1000000 if torch.cuda.is_available() else 1000000
+for i_episode in range(load_at, num_episodes):
+    state, _ = env.reset()
+    state = torch.tensor(env.flatten_state(state), dtype=torch.float32, device=device).unsqueeze(0)
+    episode_reward = 0
     for t in count():
         action = select_action(state)
         next_state, reward, done, info = env.step(action.item())
         reward = torch.tensor([reward], device=device)
+        episode_reward += reward.item()
 
         if not done:
             next_state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
         else:
-            rewards.append(reward)
-            print(f"Episode {i_episode + 1}/{env.end_at} finished. Reward : {reward} - {info['episode_end_reason']}")
+            policy_rewards.append(episode_reward)
+            if info['episode_end_reason'] == 'DONE':
+                dones.append(i_episode)
+            print(" " * 100, end="\r")
+            print(f"Episode {i_episode + 1}/{episode_reward}/{info['episode_end_reason']}/{env.end_at}/{env.done_end_at}/{len(dones)}", end="\r")
             next_state = None
+            env.reset()
 
         memory.push(state, action, next_state, reward)
         state = next_state
         optimize_model()
 
-        target_net_state_dict = target_net.state_dict()
-        policy_net_state_dict = policy_net.state_dict()
-        for key in policy_net_state_dict:
-            target_net_state_dict[key] = policy_net_state_dict[key]*TAU + target_net_state_dict[key]*(1-TAU)
-        target_net.load_state_dict(target_net_state_dict)
+        for target_param, local_param in zip(target_net.parameters(), policy_net.parameters()):
+            target_param.data.copy_(TAU * local_param.data + (1.0 - TAU) * target_param.data)
 
         if done:
             episode_durations.append(t + 1)
             break
-
-    if i_episode % 500 == 0:
+    
+    if i_episode % 1000 == 0:
         torch.save(policy_net.state_dict(), f'./models/traffic_world_{i_episode}.pth')
-        plot_durations(i_episode, reward=rewards)
-        plt.ioff()
-        plt.show()
-        import pickle
-        with open("rewards.pkl", "wb") as f:
-            pickle.dump(rewards, f)
+        plot_durations(f'traffic_world_{i_episode}')
+        with open("policy_rewards.pkl", "wb") as f:
+            pickle.dump(policy_rewards, f)
         with open("episode_durations.pkl", "wb") as f:
             pickle.dump(episode_durations, f)
 
 print('Complete')
 plt.ioff()
 plt.show()
- # %%
+
+
 # %%
+# test
+
+env = TrafficWorld('data/map.csv', route_length=2, seed=999)
+
+load_at = 97000
+print(f"Load at {load_at}")
+net = DQN(input_dim, n_actions).to(device)
+net.load_state_dict(torch.load(f'./models/traffic_world_{load_at}.pth'))
+
+history = []
+def eval(is_test=False):
+    state, _ = env.reset()
+    print(env.car.path)
+    state_t = torch.tensor(env.flatten_state(state), dtype=torch.float32, device=device).unsqueeze(0)
+    total_reward = 0
+    history.append(env.car.get_position())
+    for t in count():
+        action = net(state_t).max(1)[1].view(1, 1)
+        next_state, reward, done, info = env.step(action.item())
+        history.append(env.car.get_position())
+        total_reward += reward
+        if is_test:
+            print("Action: ", ACTIONS[action.item()], end=" ")
+            print("Reward: ", reward, end=" ")
+            print("Total Reward: ", total_reward)
+        if not done:
+            next_state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
+        else:
+            print(" " * 100, end="\r")
+            print(f"Eval finished. Reward: {total_reward} / Reason: {info['episode_end_reason']}", end="\r")
+            break
+        state_t = next_state
+    return state['map']['map_data']
+
 import numpy as np
-load_epoch = 28000
-map_shape = (1, env.map_data.shape[0], env.map_data.shape[1])  # assuming single channel input for CNN
-n_other_features = n_observations - np.prod(env.map_data.shape)
 
-target_net.load_state_dict(torch.load(f'./models/traffic_world_{load_epoch}.pth', map_location=device))
+def visualize_into_plot(map, hist):
+    # plot
+    fig, ax = plt.subplots()
+    ax.imshow(map, cmap='gray')
+    for i, h in enumerate(hist):
+        ax.plot(h[1], h[0], 'ro', markersize=3)
+        ax.text(h[1]+1, h[0], str(i), color='red', fontsize=6)
+        
+    plt.show()
 
-state, _ = env.reset()
-state = torch.tensor(env.flatten_state(state), dtype=torch.float32, device=device).unsqueeze(0)
-for t in count():
-    action = policy_net(state).max(1)[1].view(1, 1)
-    
-    env.render(action=action.item())
-    next_state, reward, done, info = env.step(action.item())
-    next_state = torch.tensor(env.flatten_state(next_state), dtype=torch.float32, device=device).unsqueeze(0)
-    state = next_state
-
-    if done:
-        print(f"Episode finished. Reward : {reward} - {info['episode_end_reason']}")
-        break
-
-print('Complete')
+map = eval(is_test=True)
+visualize_into_plot(map=map, hist=history)
 # %%

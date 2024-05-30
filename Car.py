@@ -7,10 +7,10 @@ class Car:
         self.map_shape = map_shape
         self.path_length = path_length
         self.seed = seed
-        self.x = 32
-        self.y = 38
-        self.dx = [0, 1, 0, -1]
+        self.y = 29
+        self.x = 25
         self.dy = [-1, 0, 1, 0]
+        self.dx = [0, 1, 0, -1]
         self.heading = 0 # 0: up, 1: right, 2: down, 3: left
         self.path = RandomPath(path_length, seed)
 
@@ -18,7 +18,7 @@ class Car:
         return {
             'position': self.get_position(),
             'heading': self.get_heading(),
-            'path': self.path.get_next_action(),
+            'path': self.path.path,
             'current_path_index': self.path.curr,  # 현재 경로 인덱스
         }
 
@@ -33,21 +33,21 @@ class Car:
 
         if action == 0:
             self.heading = (self.heading + 3) % 4
-            dx = self.dx[self.heading]
-            dy = self.dy[self.heading]
+            ddx = self.dx[self.heading]
+            ddy = self.dy[self.heading]
         elif action == 1:
             self.heading = (self.heading + 1) % 4
-            dx = self.dx[self.heading]
-            dy = self.dy[self.heading]
+            ddx = self.dx[self.heading]
+            ddy = self.dy[self.heading]
         elif action == 2:
-            dx = 0
-            dy = 0
+            ddx = 0
+            ddy = 0
         else:
-            dx = self.dx[self.heading]
-            dy = self.dy[self.heading]
+            ddx = self.dx[self.heading]
+            ddy = self.dy[self.heading]
 
-        self.x += dx
-        self.y += dy
+        self.x += ddx
+        self.y += ddy
 
         if self.x < 0:
             self.x = 0

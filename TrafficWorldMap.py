@@ -20,13 +20,13 @@ class TrafficWorldMap:
         self.t = 0
         self.curr_light = RED_LIGHT
         self.map_data = map_data
-        self.cx = 32
-        self.cy = 38
+        self.cx = 25
+        self.cy = 29
         self.color = 'orange'
         
         self.text = ""
 
-    def get_state(self, cy, cx):
+    def get_state(self):
         return {
             'map_data': self.map_data,
             'current_light': self.curr_light,
@@ -122,8 +122,8 @@ class TrafficWorldMap:
     def reset(self):
         self.t = 0
         self.curr_light = RED_LIGHT
-        self.cx = 32
-        self.cy = 38
+        self.cx = 25
+        self.cy = 29
         self.color = 'orange'
 
 
